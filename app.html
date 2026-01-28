@@ -804,6 +804,20 @@
       }
 
       camerasWithStops = results;
+
+      // PRE-MARK DEMO: "Father Capodanno Blvd @ Sands LN" as blocked (dummy data for presentation)
+      camerasWithStops.forEach(cam => {
+        if (cam.name && cam.name.includes('Father Capodanno')) {
+          cam.aiStatus = 'blocked';
+          cam.aiConfidence = 0.92;
+          cam.aiReason = 'Snow accumulation detected near bus stop sign - blocking passenger access to curb';
+        }
+      });
+
+      // Update blocked count
+      const blockedCount = camerasWithStops.filter(c => c.aiStatus === 'blocked').length;
+      document.getElementById('blocked-count').textContent = blockedCount;
+
       document.getElementById('total-cameras').textContent = results.length;
       document.getElementById('total-stops').textContent = totalStops.size;
 
@@ -952,11 +966,20 @@
         return;
       }
 
-      let blocked = 0;
+      // Count pre-blocked cameras (demo data)
+      let blocked = camerasWithStops.filter(c => c.aiStatus === 'blocked').length;
       let analyzed = 0;
 
       for (let i = 0; i < camerasWithStops.length; i++) {
         const cam = camerasWithStops[i];
+
+        // Skip cameras already marked as blocked (demo/pre-set data)
+        if (cam.aiStatus === 'blocked') {
+          analyzed++;
+          btn.textContent = `🔄 Analyzing ${i + 1}/${camerasWithStops.length}...`;
+          continue;
+        }
+
         cam.aiStatus = 'analyzing';
         btn.textContent = `🔄 Analyzing ${i + 1}/${camerasWithStops.length}...`;
 

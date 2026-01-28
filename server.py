@@ -13,7 +13,9 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-MTA_API_KEY = 'Dd58ed0f-82c5-48a2-b01f-4d2d6a65e608'
+# MTA Bus Time API key (get free at http://bustime.mta.info/wiki/Developers/Index)
+# Falls back to demo key if not set in .env
+MTA_API_KEY = os.environ.get('MTA_API_KEY', 'Dd58ed0f-82c5-48a2-b01f-4d2d6a65e608')
 
 # Optional: Hugging Face API key for better AI (get free at huggingface.co)
 HF_API_KEY = os.environ.get('HF_API_KEY', '')

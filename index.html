@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NYC Traffic Cameras</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #16213e;
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select, input {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      background: #1a1a2e;
+      color: #eee;
+      font-size: 1rem;
+    }
+
+    input {
+      width: 250px;
+    }
+
+    .stats {
+      margin-left: auto;
+      color: #888;
+    }
+
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+      padding: 1.5rem;
+    }
+
+    .camera-card {
+      background: #16213e;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .camera-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    }
+
+    .camera-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      background: #0f0f1a;
+    }
+
+    .camera-info {
+      padding: 1rem;
+    }
+
+    .camera-name {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .camera-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .status {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .status.online {
+      background: #4ade80;
+    }
+
+    .status.offline {
+      background: #f87171;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 4rem;
+      color: #888;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal img {
+      max-width: 90%;
+      max-height: 70vh;
+      border-radius: 8px;
+    }
+
+    .modal-info {
+      margin-top: 1rem;
+      text-align: center;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 2rem;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .refresh-indicator {
+      font-size: 0.7rem;
+      color: #4ade80;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NYC Traffic Cameras</h1>
+    <div class="controls">
+      <select id="borough-filter">
+        <option value="all">All Boroughs</option>
+        <option value="Manhattan">Manhattan</option>
+        <option value="Brooklyn">Brooklyn</option>
+        <option value="Queens">Queens</option>
+        <option value="Bronx">Bronx</option>
+        <option value="Staten Island">Staten Island</option>
+      </select>
+      <input type="text" id="search" placeholder="Search cameras...">
+      <span class="stats" id="stats">Loading...</span>
+    </div>
+  </header>
+
+  <div class="camera-grid" id="camera-grid">
+    <div class="loading">Loading cameras...</div>
+  </div>
+
+  <div class="modal" id="modal">
+    <span class="modal-close" onclick="closeModal()">&times;</span>
+    <img id="modal-img" src="" alt="Camera Feed">
+    <div class="modal-info">
+      <h2 id="modal-name"></h2>
+      <p id="modal-meta"></p>
+      <p class="refresh-indicator">Image refreshes every 5 seconds</p>
+    </div>
+  </div>
+
+  <script src="cameras.js"></script>
+  <script>
+    let cameras = CAMERA_DATA;
+    let filteredCameras = [];
+    let modalRefreshInterval = null;
+
+    function loadCameras() {
+      filteredCameras = cameras;
+      updateStats();
+      renderCameras();
+    }
+
+    function updateStats() {
+      const online = filteredCameras.filter(c => c.isOnline === 'true').length;
+      document.getElementById('stats').textContent =
+        `Showing ${filteredCameras.length} cameras (${online} online)`;
+    }
+
+    function renderCameras() {
+      const grid = document.getElementById('camera-grid');
+
+      if (filteredCameras.length === 0) {
+        grid.innerHTML = '<div class="loading">No cameras found</div>';
+        return;
+      }
+
+      grid.innerHTML = filteredCameras.map(cam => `
+        <div class="camera-card" onclick="openModal('${cam.id}', '${cam.name.replace(/'/g, "\\'")}', '${cam.area}')">
+          <img src="${cam.imageUrl}" alt="${cam.name}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22352%22 height=%22240%22><rect fill=%22%23333%22 width=%22352%22 height=%22240%22/><text x=%2250%%22 y=%2250%%22 fill=%22%23666%22 text-anchor=%22middle%22>No Signal</text></svg>'">
+          <div class="camera-info">
+            <div class="camera-name">${cam.name}</div>
+            <div class="camera-meta">
+              <span>${cam.area}</span>
+              <span><span class="status ${cam.isOnline === 'true' ? 'online' : 'offline'}"></span>${cam.isOnline === 'true' ? 'Online' : 'Offline'}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterCameras() {
+      const borough = document.getElementById('borough-filter').value;
+      const search = document.getElementById('search').value.toLowerCase();
+
+      filteredCameras = cameras.filter(cam => {
+        const matchBorough = borough === 'all' || cam.area === borough;
+        const matchSearch = cam.name.toLowerCase().includes(search);
+        return matchBorough && matchSearch;
+      });
+
+      updateStats();
+      renderCameras();
+    }
+
+    function openModal(id, name, area) {
+      const modal = document.getElementById('modal');
+      const img = document.getElementById('modal-img');
+      const url = `https://webcams.nyctmc.org/api/cameras/${id}/image`;
+
+      img.src = url + '?t=' + Date.now();
+      document.getElementById('modal-name').textContent = name;
+      document.getElementById('modal-meta').textContent = area;
+
+      modal.classList.add('active');
+
+      // Refresh image every 5 seconds
+      modalRefreshInterval = setInterval(() => {
+        img.src = url + '?t=' + Date.now();
+      }, 5000);
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+      if (modalRefreshInterval) {
+        clearInterval(modalRefreshInterval);
+        modalRefreshInterval = null;
+      }
+    }
+
+    // Event listeners
+    document.getElementById('borough-filter').addEventListener('change', filterCameras);
+    document.getElementById('search').addEventListener('input', filterCameras);
+    document.getElementById('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Load cameras on page load
+    loadCameras();
+  </script>
+</body>
+</html>

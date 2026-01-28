@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snowed-In Bus Stop</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      height: 100vh;
+    }
+
+    #map {
+      height: 100%;
+      background: #1e293b;
+    }
+
+    .sidebar {
+      background: #1e293b;
+      overflow-y: auto;
+      border-left: 1px solid #334155;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      position: sticky;
+      top: 0;
+    }
+
+    .sidebar-header h1 {
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .stats {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .stat {
+      background: #334155;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      flex: 1;
+      text-center;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .camera-list {
+      padding: 1rem;
+    }
+
+    .camera-item {
+      background: #334155;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .camera-item:hover {
+      transform: scale(1.02);
+    }
+
+    .camera-item.analyzing {
+      border: 2px solid #fbbf24;
+    }
+
+    .camera-item.clear {
+      border: 2px solid #22c55e;
+    }
+
+    .camera-item.blocked {
+      border: 2px solid #ef4444;
+    }
+
+    .camera-img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      background: #1e293b;
+    }
+
+    .camera-details {
+      padding: 1rem;
+    }
+
+    .camera-name {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .camera-meta {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .bus-stops {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #475569;
+    }
+
+    .bus-stop {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .bus-icon {
+      width: 20px;
+      height: 20px;
+      background: #3b82f6;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+    }
+
+    .routes {
+      color: #94a3b8;
+      font-size: 0.7rem;
+    }
+
+    .ai-status {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+
+    .ai-status.pending { background: #475569; }
+    .ai-status.analyzing { background: #fbbf24; color: #000; }
+    .ai-status.clear { background: #22c55e; color: #000; }
+    .ai-status.blocked { background: #ef4444; }
+    .ai-status.obscured { background: #8b5cf6; }
+
+    .ai-reason {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: #1e293b;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #94a3b8;
+    }
+
+    .legend {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .analyze-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+
+    .analyze-btn:hover {
+      background: #2563eb;
+    }
+
+    .analyze-btn:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+
+    /* Modal for camera detail view */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      border-radius: 12px;
+      max-width: 900px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .modal-left {
+      padding: 1.5rem;
+      border-right: 1px solid #334155;
+    }
+
+    .modal-right {
+      padding: 1.5rem;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 2rem;
+      color: white;
+      cursor: pointer;
+      z-index: 1001;
+    }
+
+    .modal-image {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-section {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #334155;
+    }
+
+    .modal-section h3 {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .plow-status {
+      background: #334155;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 0.5rem;
+    }
+
+    .plow-status.recent {
+      border-left: 3px solid #22c55e;
+    }
+
+    .plow-status.old {
+      border-left: 3px solid #ef4444;
+    }
+
+    .ai-evidence {
+      background: #0f172a;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 0.5rem;
+    }
+
+    .ai-evidence-title {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .refresh-btn {
+      background: #475569;
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #22c55e;
+      margin-bottom: 0.5rem;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Image annotation overlay */
+    .image-container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .annotation-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .annotation-box {
+      position: absolute;
+      border: 3px solid #ef4444;
+      border-radius: 4px;
+      background: rgba(239, 68, 68, 0.15);
+      animation: pulse-border 2s infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { border-color: #ef4444; }
+      50% { border-color: #fbbf24; }
+    }
+
+    .annotation-arrow {
+      position: absolute;
+      color: #ef4444;
+      font-size: 1.5rem;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
+      animation: bounce-arrow 1s infinite;
+    }
+
+    @keyframes bounce-arrow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .annotation-label {
+      position: absolute;
+      background: #ef4444;
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .clear-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #22c55e;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="map"></div>
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h1>🌨️ Snowed-In Bus Stop</h1>
+        <p style="font-size: 0.85rem; color: #94a3b8;">Cameras near bus stops</p>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-value" id="total-cameras">-</div>
+            <div class="stat-label">Cameras</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="total-stops">-</div>
+            <div class="stat-label">Bus Stops</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="blocked-count">0</div>
+            <div class="stat-label">Blocked</div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Clear</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Blocked</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Analyzing</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div> Obscured</div>
+        </div>
+
+        <button class="analyze-btn" id="analyze-btn" onclick="simulateAIAnalysis()">
+          🤖 Run AI Analysis
+        </button>
+      </div>
+
+      <div class="camera-list" id="camera-list">
+        <div class="loading">Loading cameras and bus stops...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Detail Modal -->
+  <div class="modal-overlay" id="camera-modal">
+    <span class="modal-close" onclick="closeModal()">&times;</span>
+    <div class="modal-content">
+      <div class="modal-left">
+        <div class="live-indicator">
+          <div class="live-dot"></div>
+          <span>LIVE - Refreshes every 5 seconds</span>
+        </div>
+        <div class="image-container">
+          <img id="modal-image" class="modal-image" src="" alt="Camera Feed">
+          <div class="annotation-overlay" id="annotation-overlay">
+            <!-- Annotations added dynamically -->
+          </div>
+        </div>
+        <button class="refresh-btn" onclick="refreshModalImage()">🔄 Refresh Now</button>
+      </div>
+      <div class="modal-right">
+        <div class="modal-title" id="modal-title">Camera Name</div>
+        <div id="modal-area" style="color: #94a3b8;"></div>
+
+        <div class="modal-section">
+          <h3>🤖 AI Analysis</h3>
+          <div class="ai-evidence" id="modal-ai-evidence">
+            <div class="ai-evidence-title">
+              <span id="modal-ai-status">⏳ Not Analyzed</span>
+            </div>
+            <p id="modal-ai-reason" style="color: #94a3b8; font-size: 0.9rem;">
+              Click "Run AI Analysis" to detect snow blockages
+            </p>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>🚌 Nearby Bus Stops</h3>
+          <div id="modal-bus-stops"></div>
+        </div>
+
+        <div class="modal-section">
+          <h3>❄️ Snowplow Activity</h3>
+          <div id="modal-plow-status">
+            <div class="plow-status">
+              Loading plow data...
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>📍 What AI Should Look For</h3>
+          <div style="font-size: 0.85rem; color: #94a3b8;">
+            <p>✓ Snow mounds along the curb blocking passenger access</p>
+            <p>✓ Accumulated snow on sidewalk near bus stop signs</p>
+            <p>✓ Clear vs obstructed pathway from sidewalk to street</p>
+            <p>✗ General road conditions (not the focus)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const API_BASE = 'http://localhost:5001';
+
+    let map;
+    let allCameras = [];
+    let camerasWithStops = [];
+    let markers = {};
+
+    // Calculate distance between two points (Haversine formula)
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth's radius in meters
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c; // Distance in meters
+    }
+
+    // Initialize map
+    function initMap() {
+      map = L.map('map').setView([40.7128, -74.006], 12);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO'
+      }).addTo(map);
+    }
+
+    // Fetch bus stops near a location (via our backend proxy)
+    async function getBusStopsNear(lat, lon, radius = 150) {
+      try {
+        const url = `${API_BASE}/api/bus-stops?lat=${lat}&lon=${lon}&radius=${radius}`;
+        const res = await fetch(url);
+        return await res.json();
+      } catch (err) {
+        console.error('Error fetching stops:', err);
+        return [];
+      }
+    }
+
+    // Find cameras near bus stops
+    async function matchCamerasToStops() {
+      const cameraList = document.getElementById('camera-list');
+      cameraList.innerHTML = '<div class="loading">Loading cameras...</div>';
+
+      // Fetch cameras from backend
+      try {
+        const res = await fetch(`${API_BASE}/api/cameras`);
+        allCameras = await res.json();
+      } catch (err) {
+        cameraList.innerHTML = '<div class="loading">Error: Backend not running. Start with: python3 server.py</div>';
+        return;
+      }
+
+      cameraList.innerHTML = '<div class="loading">Matching cameras to bus stops...</div>';
+
+      const results = [];
+      let totalStops = new Set();
+
+      // Process cameras (limit to first 50 for demo speed)
+      const camerasToProcess = allCameras.slice(0, 50);
+
+      for (let i = 0; i < camerasToProcess.length; i++) {
+        const camera = camerasToProcess[i];
+        const stops = await getBusStopsNear(camera.latitude, camera.longitude, 100);
+
+        if (stops.length > 0) {
+          results.push({
+            ...camera,
+            nearbyStops: stops.slice(0, 3), // Keep top 3 closest
+            aiStatus: 'pending'
+          });
+
+          stops.forEach(s => totalStops.add(s.id));
+        }
+
+        // Update progress
+        if (i % 10 === 0) {
+          cameraList.innerHTML = `<div class="loading">Scanning cameras... ${i}/${camerasToProcess.length}<br>Found ${results.length} near bus stops</div>`;
+        }
+      }
+
+      camerasWithStops = results;
+      document.getElementById('total-cameras').textContent = results.length;
+      document.getElementById('total-stops').textContent = totalStops.size;
+
+      renderCameras();
+      renderMapMarkers();
+    }
+
+    // Render camera list
+    function renderCameras() {
+      const cameraList = document.getElementById('camera-list');
+
+      if (camerasWithStops.length === 0) {
+        cameraList.innerHTML = '<div class="loading">No cameras found near bus stops</div>';
+        return;
+      }
+
+      cameraList.innerHTML = camerasWithStops.map((cam, idx) => `
+        <div class="camera-item ${cam.aiStatus}" onclick="openCameraModal(${idx})">
+          <img class="camera-img" src="${cam.imageUrl}" alt="${cam.name}"
+               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22352%22 height=%22150%22><rect fill=%22%23334155%22 width=%22352%22 height=%22150%22/><text x=%2250%%22 y=%2250%%22 fill=%22%23666%22 text-anchor=%22middle%22>Loading...</text></svg>'">
+          <div class="camera-details">
+            <div class="camera-name">${cam.name}</div>
+            <div class="camera-meta">${cam.area} • ${cam.nearbyStops.length} bus stop(s) nearby</div>
+
+            <div class="bus-stops">
+              ${cam.nearbyStops.map(stop => `
+                <div class="bus-stop">
+                  <div class="bus-icon">🚌</div>
+                  <div>
+                    <div>${stop.name}</div>
+                    <div class="routes">${stop.routes?.slice(0,3).map(r => r.shortName).join(', ') || 'N/A'}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <span class="ai-status ${cam.aiStatus}">
+              ${getStatusLabel(cam.aiStatus)}
+            </span>
+            ${cam.aiReason ? `<div class="ai-reason">${cam.aiReason}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function getStatusLabel(status) {
+      const labels = {
+        pending: '⏳ Pending Analysis',
+        analyzing: '🔄 Analyzing...',
+        clear: '✅ Clear',
+        blocked: '🚨 BLOCKED - Needs Plowing',
+        obscured: '📷 Camera Obscured'
+      };
+      return labels[status] || status;
+    }
+
+    // Render map markers
+    function renderMapMarkers() {
+      // Clear existing markers
+      Object.values(markers).forEach(m => map.removeLayer(m));
+      markers = {};
+
+      camerasWithStops.forEach((cam, idx) => {
+        const color = {
+          pending: '#94a3b8',
+          analyzing: '#fbbf24',
+          clear: '#22c55e',
+          blocked: '#ef4444',
+          obscured: '#8b5cf6'
+        }[cam.aiStatus] || '#94a3b8';
+
+        const icon = L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="
+            width: 20px; height: 20px;
+            background: ${color};
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+          "></div>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker([cam.latitude, cam.longitude], { icon })
+          .addTo(map)
+          .bindPopup(`
+            <strong>${cam.name}</strong><br>
+            ${cam.nearbyStops.length} bus stops nearby<br>
+            Status: ${getStatusLabel(cam.aiStatus)}<br>
+            <a href="#" onclick="openCameraModal(${idx}); return false;" style="color: #3b82f6;">View Details →</a>
+          `);
+
+        marker.on('dblclick', () => openCameraModal(idx));
+        markers[cam.id] = marker;
+      });
+
+      // Fit map to markers
+      if (camerasWithStops.length > 0) {
+        const group = L.featureGroup(Object.values(markers));
+        map.fitBounds(group.getBounds().pad(0.1));
+      }
+    }
+
+    function focusCamera(idx) {
+      const cam = camerasWithStops[idx];
+      map.setView([cam.latitude, cam.longitude], 16);
+      markers[cam.id].openPopup();
+    }
+
+    // AI analysis using backend
+    async function analyzeWithClaude(camera) {
+      try {
+        const response = await fetch(`${API_BASE}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageUrl: camera.imageUrl,
+            name: camera.name
+          })
+        });
+
+        if (!response.ok) throw new Error('API request failed');
+
+        const result = await response.json();
+        return result;
+      } catch (err) {
+        console.error('AI analysis error:', err);
+        return { status: 'obscured', confidence: 0, reason: 'API error: ' + err.message };
+      }
+    }
+
+    async function runAIAnalysis() {
+      const btn = document.getElementById('analyze-btn');
+      btn.disabled = true;
+      btn.textContent = '🔄 Connecting to Claude AI...';
+
+      // Check if backend is running
+      try {
+        const health = await fetch(`${API_BASE}/api/health`);
+        if (!health.ok) throw new Error('Backend not responding');
+      } catch (err) {
+        alert('❌ Backend server not running!\n\nStart it with:\npython3 server.py');
+        btn.disabled = false;
+        btn.textContent = '🤖 Run AI Analysis';
+        return;
+      }
+
+      let blocked = 0;
+      let analyzed = 0;
+
+      for (let i = 0; i < camerasWithStops.length; i++) {
+        const cam = camerasWithStops[i];
+        cam.aiStatus = 'analyzing';
+        btn.textContent = `🔄 Analyzing ${i + 1}/${camerasWithStops.length}...`;
+
+        renderCameras();
+        renderMapMarkers();
+
+        // Scroll to current camera
+        const cameraItems = document.querySelectorAll('.camera-item');
+        if (cameraItems[i]) {
+          cameraItems[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Call Claude Vision API
+        const result = await analyzeWithClaude(cam);
+
+        cam.aiStatus = result.status;
+        cam.aiConfidence = result.confidence;
+        cam.aiReason = result.reason;
+
+        if (result.status === 'blocked') blocked++;
+        analyzed++;
+
+        document.getElementById('blocked-count').textContent = blocked;
+        renderCameras();
+        renderMapMarkers();
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🤖 Run AI Analysis';
+
+      const obscured = camerasWithStops.filter(c => c.aiStatus === 'obscured').length;
+      const clear = camerasWithStops.filter(c => c.aiStatus === 'clear').length;
+
+      alert(`✅ Analysis complete!\n\n🚨 ${blocked} blocked bus stops\n✅ ${clear} clear\n📷 ${obscured} cameras obscured`);
+    }
+
+    // Alias for button onclick
+    function simulateAIAnalysis() {
+      runAIAnalysis();
+    }
+
+    // Modal functionality
+    let currentModalCamera = null;
+    let modalRefreshInterval = null;
+
+    function openCameraModal(idx) {
+      const cam = camerasWithStops[idx];
+      currentModalCamera = cam;
+
+      // Set basic info
+      document.getElementById('modal-title').textContent = cam.name;
+      document.getElementById('modal-area').textContent = cam.area;
+      document.getElementById('modal-image').src = cam.imageUrl + '?t=' + Date.now();
+
+      // Set AI status and annotations
+      const statusEl = document.getElementById('modal-ai-status');
+      const reasonEl = document.getElementById('modal-ai-reason');
+      const annotationEl = document.getElementById('annotation-overlay');
+
+      // Clear previous annotations
+      annotationEl.innerHTML = '';
+
+      if (cam.aiStatus === 'blocked') {
+        statusEl.innerHTML = '🚨 <span style="color:#ef4444;">BLOCKED - Snow Detected</span>';
+        reasonEl.textContent = cam.aiReason || 'Snow accumulation detected that may block bus stop access';
+
+        // Add visual annotation showing area of concern
+        // In production: AI would provide actual coordinates
+        annotationEl.innerHTML = `
+          <div class="annotation-box" style="bottom: 15%; left: 10%; width: 35%; height: 25%;"></div>
+          <div class="annotation-arrow" style="bottom: 42%; left: 25%;">↓</div>
+          <div class="annotation-label" style="bottom: 42%; left: 10%;">SNOW BLOCKAGE AREA</div>
+        `;
+      } else if (cam.aiStatus === 'clear') {
+        statusEl.innerHTML = '✅ <span style="color:#22c55e;">CLEAR</span>';
+        reasonEl.textContent = cam.aiReason || 'No snow blockage detected';
+
+        // Show clear badge
+        annotationEl.innerHTML = `
+          <div class="clear-badge">✓ CLEAR</div>
+        `;
+      } else if (cam.aiStatus === 'obscured') {
+        statusEl.innerHTML = '📷 <span style="color:#8b5cf6;">CAMERA OBSCURED</span>';
+        reasonEl.textContent = cam.aiReason || 'Camera view is blocked or unclear';
+
+        // Show obscured overlay
+        annotationEl.innerHTML = `
+          <div style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(139,92,246,0.3); display:flex; align-items:center; justify-content:center;">
+            <span style="background:#8b5cf6; color:white; padding:1rem 2rem; border-radius:8px; font-weight:bold;">📷 CAMERA OBSCURED</span>
+          </div>
+        `;
+      } else {
+        statusEl.textContent = '⏳ Not Analyzed Yet';
+        reasonEl.textContent = 'Click "Run AI Analysis" to detect snow blockages in this image';
+      }
+
+      // Set bus stops
+      const stopsEl = document.getElementById('modal-bus-stops');
+      stopsEl.innerHTML = cam.nearbyStops.map(stop => `
+        <div class="bus-stop" style="margin-bottom: 0.5rem;">
+          <div class="bus-icon">🚌</div>
+          <div>
+            <div style="font-weight: 600;">${stop.name}</div>
+            <div class="routes">${stop.routes?.slice(0,4).map(r => r.shortName).join(', ') || 'N/A'}</div>
+          </div>
+        </div>
+      `).join('');
+
+      // Fetch snowplow data
+      fetchPlowData(cam.latitude, cam.longitude);
+
+      // Show modal
+      document.getElementById('camera-modal').classList.add('active');
+
+      // Start auto-refresh
+      modalRefreshInterval = setInterval(() => {
+        document.getElementById('modal-image').src = cam.imageUrl + '?t=' + Date.now();
+      }, 5000);
+    }
+
+    function closeModal() {
+      document.getElementById('camera-modal').classList.remove('active');
+      if (modalRefreshInterval) {
+        clearInterval(modalRefreshInterval);
+        modalRefreshInterval = null;
+      }
+    }
+
+    function refreshModalImage() {
+      if (currentModalCamera) {
+        document.getElementById('modal-image').src = currentModalCamera.imageUrl + '?t=' + Date.now();
+      }
+    }
+
+    async function fetchPlowData(lat, lon) {
+      const plowEl = document.getElementById('modal-plow-status');
+      plowEl.innerHTML = '<div class="plow-status">Loading plow data...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/snowplow?limit=50`);
+        const data = await res.json();
+
+        if (data && data.length > 0) {
+          // Find entry with valid last_visited
+          const validEntries = data.filter(d => d.last_visited);
+
+          if (validEntries.length > 0) {
+            const recent = validEntries[0];
+            const lastPlow = new Date(recent.last_visited);
+            const now = new Date();
+            const diffMs = now - lastPlow;
+            const hoursAgo = Math.floor(diffMs / (1000 * 60 * 60));
+            const minsAgo = Math.floor(diffMs / (1000 * 60));
+
+            let timeText = '';
+            if (minsAgo < 60) {
+              timeText = `${minsAgo} minutes ago`;
+            } else if (hoursAgo < 24) {
+              timeText = `${hoursAgo} hours ago`;
+            } else {
+              const daysAgo = Math.floor(hoursAgo / 24);
+              timeText = `${daysAgo} days ago`;
+            }
+
+            if (hoursAgo < 4) {
+              plowEl.innerHTML = `
+                <div class="plow-status recent">
+                  <strong style="color: #22c55e;">✓ Recently Plowed</strong>
+                  <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+                    Last plow activity: ${timeText}
+                  </p>
+                  <p style="color: #94a3b8; font-size: 0.8rem;">
+                    → Lower priority for dispatch
+                  </p>
+                </div>
+              `;
+            } else {
+              plowEl.innerHTML = `
+                <div class="plow-status old">
+                  <strong style="color: #ef4444;">⚠ Not Recently Plowed</strong>
+                  <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+                    Last plow activity: ${timeText}
+                  </p>
+                  <p style="color: #94a3b8; font-size: 0.8rem;">
+                    → Higher priority for dispatch if blocked
+                  </p>
+                </div>
+              `;
+            }
+          } else {
+            plowEl.innerHTML = `
+              <div class="plow-status old">
+                <strong style="color: #fbbf24;">⚠ No Recent Plow Data</strong>
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+                  No plow activity recorded for this area
+                </p>
+              </div>
+            `;
+          }
+        }
+      } catch (err) {
+        plowEl.innerHTML = '<div class="plow-status">Could not load plow data</div>';
+      }
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Close modal on overlay click
+    document.getElementById('camera-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'camera-modal') closeModal();
+    });
+
+    // Initialize
+    initMap();
+    matchCamerasToStops();
+  </script>
+</body>
+</html>

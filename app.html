@@ -481,7 +481,10 @@
             <!-- Annotations added dynamically -->
           </div>
         </div>
-        <button class="refresh-btn" onclick="refreshModalImage()">🔄 Refresh Now</button>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button class="refresh-btn" onclick="refreshModalImage()">🔄 Refresh Now</button>
+          <button class="refresh-btn" style="background: #ef4444;" onclick="markAsBlockedDemo()">🚨 Mark as Blocked (Demo)</button>
+        </div>
       </div>
       <div class="modal-right">
         <div class="modal-title" id="modal-title">Camera Name</div>
@@ -1020,12 +1023,19 @@
         statusEl.innerHTML = '🚨 <span style="color:#ef4444;">BLOCKED - Snow Detected</span>';
         reasonEl.textContent = cam.aiReason || 'Snow accumulation detected that may block bus stop access';
 
-        // Add visual annotation showing area of concern
-        // In production: AI would provide actual coordinates
+        // Add visual annotation showing area of concern (bus stop typically on right side)
         annotationEl.innerHTML = `
-          <div class="annotation-box" style="bottom: 15%; left: 10%; width: 35%; height: 25%;"></div>
-          <div class="annotation-arrow" style="bottom: 42%; left: 25%;">↓</div>
-          <div class="annotation-label" style="bottom: 42%; left: 10%;">SNOW BLOCKAGE AREA</div>
+          <!-- Main blocked area - bus stop on the right side -->
+          <div class="annotation-box" style="bottom: 20%; right: 5%; width: 30%; height: 35%;"></div>
+          <div class="annotation-arrow" style="bottom: 58%; right: 18%; font-size: 2rem;">↓</div>
+          <div class="annotation-label" style="bottom: 60%; right: 5%; font-size: 0.85rem;">🚨 SNOW BLOCKING BUS STOP</div>
+
+          <!-- Secondary annotation for curb snow -->
+          <div style="position: absolute; bottom: 15%; right: 38%; width: 20%; height: 15%; border: 2px dashed #fbbf24; border-radius: 4px; background: rgba(251, 191, 36, 0.15);"></div>
+          <div style="position: absolute; bottom: 32%; right: 35%; background: #fbbf24; color: black; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">CURB SNOW</div>
+
+          <!-- Status badge -->
+          <div style="position: absolute; top: 10px; left: 10px; background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-weight: bold; font-size: 0.9rem; animation: pulse-border 1.5s infinite;">🚨 BLOCKED - NEEDS PLOWING</div>
         `;
       } else if (cam.aiStatus === 'clear') {
         statusEl.innerHTML = '✅ <span style="color:#22c55e;">CLEAR</span>';
@@ -1166,6 +1176,103 @@
 
     function closeDemoModal() {
       document.getElementById('demo-modal').classList.remove('active');
+    }
+
+    // Mark current camera as blocked (demo mode for MTA presentation)
+    function markAsBlockedDemo() {
+      if (!currentModalCamera) return;
+
+      // Update camera status
+      currentModalCamera.aiStatus = 'blocked';
+      currentModalCamera.aiConfidence = 0.92;
+      currentModalCamera.aiReason = 'Snow accumulation detected near bus stop sign - blocking passenger access to curb';
+
+      // Update modal UI
+      const statusEl = document.getElementById('modal-ai-status');
+      const reasonEl = document.getElementById('modal-ai-reason');
+      const annotationEl = document.getElementById('annotation-overlay');
+
+      statusEl.innerHTML = '🚨 <span style="color:#ef4444;">BLOCKED - Snow Detected</span>';
+      reasonEl.textContent = currentModalCamera.aiReason;
+
+      // Add red annotations pointing to the bus stop area (right side of image)
+      // Based on the camera view: bus stop is on the right side near the sidewalk
+      annotationEl.innerHTML = `
+        <!-- Main blocked area - bus stop on the right side -->
+        <div class="annotation-box" style="
+          bottom: 20%;
+          right: 5%;
+          width: 30%;
+          height: 35%;
+        "></div>
+
+        <!-- Arrow pointing to blocked area -->
+        <div class="annotation-arrow" style="
+          bottom: 58%;
+          right: 18%;
+          font-size: 2rem;
+        ">↓</div>
+
+        <!-- Label for blocked area -->
+        <div class="annotation-label" style="
+          bottom: 60%;
+          right: 5%;
+          font-size: 0.85rem;
+        ">🚨 SNOW BLOCKING BUS STOP</div>
+
+        <!-- Secondary annotation for curb snow -->
+        <div style="
+          position: absolute;
+          bottom: 15%;
+          right: 38%;
+          width: 20%;
+          height: 15%;
+          border: 2px dashed #fbbf24;
+          border-radius: 4px;
+          background: rgba(251, 191, 36, 0.15);
+        "></div>
+
+        <!-- Curb label -->
+        <div style="
+          position: absolute;
+          bottom: 32%;
+          right: 35%;
+          background: #fbbf24;
+          color: black;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.7rem;
+          font-weight: bold;
+        ">CURB SNOW</div>
+
+        <!-- Status badge -->
+        <div style="
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          background: #ef4444;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          font-weight: bold;
+          font-size: 0.9rem;
+          animation: pulse-border 1.5s infinite;
+        ">🚨 BLOCKED - NEEDS PLOWING</div>
+      `;
+
+      // Update blocked count
+      const blockedCams = camerasWithStops.filter(c => c.aiStatus === 'blocked').length;
+      document.getElementById('blocked-count').textContent = blockedCams;
+
+      // Re-render camera list and map
+      renderCameras();
+      renderMapMarkers();
+
+      // Flash the annotation to draw attention
+      annotationEl.style.animation = 'none';
+      setTimeout(() => {
+        annotationEl.style.animation = '';
+      }, 10);
     }
 
     // Close modals on escape key

@@ -455,6 +455,9 @@
         <button class="analyze-btn" id="analyze-btn" onclick="simulateAIAnalysis()">
           🤖 Run AI Analysis
         </button>
+        <button class="analyze-btn" style="background: #ef4444; margin-top: 0.5rem;" onclick="openDemoModal()">
+          📸 View Demo: Blocked Bus Stop
+        </button>
       </div>
 
       <div class="camera-list" id="camera-list">
@@ -517,6 +520,192 @@
             <p>✓ Accumulated snow on sidewalk near bus stop signs</p>
             <p>✓ Clear vs obstructed pathway from sidewalk to street</p>
             <p>✗ General road conditions (not the focus)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo Modal for MTA Employees -->
+  <div class="modal-overlay" id="demo-modal">
+    <span class="modal-close" onclick="closeDemoModal()">&times;</span>
+    <div class="modal-content" style="max-width: 1000px;">
+      <div class="modal-left" style="grid-column: 1 / -1; padding: 2rem;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+          <h2 style="color: #ef4444; font-size: 1.75rem; margin-bottom: 0.5rem;">🚨 DEMO: Snow-Blocked Bus Stop</h2>
+          <p style="color: #94a3b8;">This example shows how the system identifies areas that need snow plowing</p>
+        </div>
+
+        <div class="image-container" style="max-width: 800px; margin: 0 auto;">
+          <!-- Demo image with annotations -->
+          <div style="position: relative; background: #1e293b; border-radius: 12px; overflow: hidden;">
+            <!-- Placeholder demo image showing a snowy street scene -->
+            <svg width="800" height="500" viewBox="0 0 800 500" style="width: 100%; height: auto;">
+              <!-- Sky -->
+              <rect fill="#4a5568" width="800" height="200"/>
+              <!-- Snow-covered ground -->
+              <rect fill="#e2e8f0" y="200" width="800" height="300"/>
+              <!-- Road -->
+              <rect fill="#374151" y="280" width="800" height="140"/>
+              <!-- Sidewalk -->
+              <rect fill="#94a3b8" y="420" width="800" height="80"/>
+
+              <!-- Snow banks at curb (the problem area!) -->
+              <ellipse fill="#f1f5f9" cx="150" cy="410" rx="120" ry="35"/>
+              <ellipse fill="#f1f5f9" cx="400" cy="415" rx="150" ry="40"/>
+              <ellipse fill="#f1f5f9" cx="680" cy="408" rx="100" ry="30"/>
+
+              <!-- Bus stop sign -->
+              <rect fill="#3b82f6" x="350" y="300" width="8" height="120"/>
+              <rect fill="#3b82f6" x="330" y="290" width="50" height="40" rx="4"/>
+              <text x="355" y="315" fill="white" font-size="14" text-anchor="middle" font-weight="bold">BUS</text>
+
+              <!-- Building silhouettes -->
+              <rect fill="#1e293b" x="50" y="100" width="100" height="100"/>
+              <rect fill="#1e293b" x="200" y="80" width="120" height="120"/>
+              <rect fill="#1e293b" x="500" y="90" width="140" height="110"/>
+              <rect fill="#1e293b" x="680" y="110" width="100" height="90"/>
+
+              <!-- Windows -->
+              <rect fill="#fbbf24" x="70" y="120" width="15" height="20"/>
+              <rect fill="#fbbf24" x="110" y="120" width="15" height="20"/>
+              <rect fill="#fbbf24" x="70" y="160" width="15" height="20"/>
+              <rect fill="#fbbf24" x="520" y="110" width="15" height="20"/>
+              <rect fill="#fbbf24" x="560" y="110" width="15" height="20"/>
+              <rect fill="#fbbf24" x="600" y="110" width="15" height="20"/>
+            </svg>
+
+            <!-- RED ANNOTATION OVERLAYS - What MTA employees should see -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+              <!-- Main blocked area box -->
+              <div style="
+                position: absolute;
+                bottom: 12%;
+                left: 25%;
+                width: 35%;
+                height: 18%;
+                border: 4px solid #ef4444;
+                border-radius: 8px;
+                background: rgba(239, 68, 68, 0.2);
+                animation: pulse-border 1.5s infinite;
+              "></div>
+
+              <!-- Arrow pointing to blocked area -->
+              <div style="
+                position: absolute;
+                bottom: 32%;
+                left: 40%;
+                color: #ef4444;
+                font-size: 3rem;
+                text-shadow: 0 0 10px rgba(0,0,0,0.8);
+                animation: bounce-arrow 1s infinite;
+              ">↓</div>
+
+              <!-- Label for blocked area -->
+              <div style="
+                position: absolute;
+                bottom: 35%;
+                left: 25%;
+                background: #ef4444;
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 1rem;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              ">🚨 SNOW BLOCKING BUS STOP ACCESS</div>
+
+              <!-- Second annotation for curb area -->
+              <div style="
+                position: absolute;
+                bottom: 8%;
+                left: 5%;
+                width: 20%;
+                height: 12%;
+                border: 3px dashed #fbbf24;
+                border-radius: 4px;
+                background: rgba(251, 191, 36, 0.15);
+              "></div>
+
+              <!-- Third annotation for curb area -->
+              <div style="
+                position: absolute;
+                bottom: 8%;
+                right: 5%;
+                width: 18%;
+                height: 12%;
+                border: 3px dashed #fbbf24;
+                border-radius: 4px;
+                background: rgba(251, 191, 36, 0.15);
+              "></div>
+
+              <!-- Legend at top -->
+              <div style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(0,0,0,0.8);
+                padding: 1rem;
+                border-radius: 8px;
+                font-size: 0.85rem;
+              ">
+                <div style="color: #ef4444; margin-bottom: 0.5rem;">■ Primary blockage (URGENT)</div>
+                <div style="color: #fbbf24;">□ Additional snow buildup</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action buttons for MTA -->
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+          <button style="
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+          " onclick="alert('📍 Dispatch request sent to nearest plow unit!')">
+            🚜 Request Plow Dispatch
+          </button>
+          <button style="
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+          " onclick="alert('📋 Report added to daily log')">
+            📋 Log for Review
+          </button>
+        </div>
+
+        <!-- Info section -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+          <div style="background: #334155; padding: 1.5rem; border-radius: 8px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🚌</div>
+            <div style="font-weight: bold; color: #ef4444;">Bus Stop Blocked</div>
+            <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+              Passengers cannot safely board/exit buses at this location
+            </div>
+          </div>
+          <div style="background: #334155; padding: 1.5rem; border-radius: 8px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">❄️</div>
+            <div style="font-weight: bold; color: #fbbf24;">Snow Depth: ~18"</div>
+            <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+              Estimated based on AI analysis of curb height
+            </div>
+          </div>
+          <div style="background: #334155; padding: 1.5rem; border-radius: 8px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">⏰</div>
+            <div style="font-weight: bold; color: #22c55e;">Priority: HIGH</div>
+            <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+              Last plowed: 12+ hours ago
+            </div>
           </div>
         </div>
       </div>
@@ -970,14 +1159,31 @@
       }
     }
 
-    // Close modal on escape key
+    // Demo modal functions
+    function openDemoModal() {
+      document.getElementById('demo-modal').classList.add('active');
+    }
+
+    function closeDemoModal() {
+      document.getElementById('demo-modal').classList.remove('active');
+    }
+
+    // Close modals on escape key
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Escape') {
+        closeModal();
+        closeDemoModal();
+      }
     });
 
     // Close modal on overlay click
     document.getElementById('camera-modal').addEventListener('click', (e) => {
       if (e.target.id === 'camera-modal') closeModal();
+    });
+
+    // Close demo modal on overlay click
+    document.getElementById('demo-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'demo-modal') closeDemoModal();
     });
 
     // Initialize
